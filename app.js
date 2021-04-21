@@ -11,6 +11,7 @@ const mongoose = require('./config/db');
 const loginRoute = require('./routes/loginRoutes');
 const registerRoute = require('./routes/registerRoutes');
 const logoutRoute = require('./routes/logoutRoutes');
+const postApiRoute = require('./routes/api/post');
 
 app.set("view engine","pug");
 app.set("views","views");
@@ -37,6 +38,7 @@ app.get('/',isLoggedIn,(req,res)=>{
 app.use('/login',loginRoute);
 app.use('/register',registerRoute);
 app.use('/logout',logoutRoute);
+app.use('/api/posts',postApiRoute);
 
 app.listen(port,()=>{
     console.log('Server started at ' + port);
