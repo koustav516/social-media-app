@@ -29,13 +29,50 @@ $('#submitPostButton').click((e)=> {
     })
 });
 
+$(document).on("click",".likeButton",(e)=> {
+    const button = $(e.target);
+    const postId = getPostIdFromElement(button);
+
+    if(postId === undefined) return;
+
+    $.ajax({
+        url: `/api/posts/${postId}/like`,
+        type: "PUT",
+        success: (postData) => {
+            button.find("span").text(postData.likes.length || "");
+            
+            if(postData.likes.includes(userLoggedIn._id)) {
+                button.addClass("active");
+            } else {
+                button.removeClass("active");
+            }
+        }
+    })
+});
+
+function getPostIdFromElement(element) {
+    const isRoot = element.hasClass("post");
+    const rootElement = isRoot ? element : element.closest(".post");
+    const postId = rootElement.data().id;
+
+    if(postId === undefined) return alert('post id undefiend');
+
+    return postId;
+}
+
 function createPostHtml(postData) {
    
     const postedBy = postData.postedBy;
-    const displayName = postedBy.firstname + " " + postedBy.lastname;
-    const timeStamp = postedBy.createdAt;
 
-    return `<div class='post'>
+    if(postedBy._id === undefined) {
+        return console.log('User object not populated')
+    }
+
+    const displayName = postedBy.firstname + " " + postedBy.lastname;
+    const timeStamp = timeDifference(new Date(), new Date(postData.createdAt));
+    const likeButtonActiveClass = postData.likes.includes(userLoggedIn._id) ? "active" : "";
+
+    return `<div class='post' data-id='${postData._id}'>
                 <div class='mainContentContainer'>
                     <div class='userImageContainer'>
                         <img src='${postedBy.profilePic}'>
@@ -43,7 +80,7 @@ function createPostHtml(postData) {
                     <div class='postContentContainer'>
                         <div class='header'>
                             <a href='/profile/${postedBy.username}' class='displayName'>${displayName}</a>
-                            <span class='username'>${postedBy.username}</span>
+                            <span class='username'>@${postedBy.username}</span>
                             <span class='date'>${timeStamp}</span>
                         </div>
                         <div class='postBody'>
@@ -55,20 +92,58 @@ function createPostHtml(postData) {
                                     <i class='far fa-comment'></i>
                                </button> 
                             </div>
-                            <div class='postButtonContainer'>
-                               <button>
+                            <div class='postButtonContainer green'>
+                               <button class='retweet'>
                                     <i class='fas fa-retweet'></i>
                                </button> 
                             </div>
-                            <div class='postButtonContainer'>
-                               <button>
+                            <div class='postButtonContainer red'>
+                               <button class='likeButton ${likeButtonActiveClass}'>
                                     <i class='far fa-heart'></i>
+                                    <span>${postData.likes.length || ""}</span>
                                </button> 
                             </div>
                         </div>
                     </div>
                 </div>
             </div>`
+}
+
+function timeDifference(current, previous) {
+
+    const msPerMinute = 60 * 1000;
+    const msPerHour = msPerMinute * 60;
+    const msPerDay = msPerHour * 24;
+    const msPerMonth = msPerDay * 30;
+    const msPerYear = msPerDay * 365;
+
+    const elapsed = current - previous;
+
+    if (elapsed < msPerMinute) {
+        if(elapsed/1000 < 30) return "Just Now";
+
+        return Math.round(elapsed/1000) + ' seconds ago';   
+    }
+
+    else if (elapsed < msPerHour) {
+         return Math.round(elapsed/msPerMinute) + ' minutes ago';   
+    }
+
+    else if (elapsed < msPerDay ) {
+         return Math.round(elapsed/msPerHour ) + ' hours ago';   
+    }
+
+    else if (elapsed < msPerMonth) {
+        return Math.round(elapsed/msPerDay) + ' days ago';   
+    }
+
+    else if (elapsed < msPerYear) {
+        return Math.round(elapsed/msPerMonth) + ' months ago';   
+    }
+
+    else {
+        return Math.round(elapsed/msPerYear ) + ' years ago';   
+    }
 }
 
 
