@@ -7,22 +7,12 @@ const Post = require('../../model/Post');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-router.get('/',(req,res)=> {
-   Post.find()
-   .populate("postedBy")
-   .populate("retweetData")
-   .sort({ "createdAt": -1 })
-   .then(async results => {
-       results = await User.populate(results, { path: "retweetData.postedBy" });
-       res.status(200).send(results)
-   })
-   .catch(err => {
-       console.log(err);
-       res.sendStatus(400);
-   })
+router.get('/', async (req,res)=> {
+   const results = await getPosts({});
+   res.status(200).send(results);
 });
 
-router.post('/',async(req,res)=> {
+router.post('/',async(req,res)=> { 
     if(!req.body.content) {
         console.log('Errorrr');
         return res.sendStatus(400);
@@ -31,6 +21,10 @@ router.post('/',async(req,res)=> {
     const postData = {
         content: req.body.content,
         postedBy: req.session.user
+    }
+
+    if(req.body.replyTo) {
+        postData.replyTo = req.body.replyTo;
     }
 
     Post.create(postData)
@@ -43,6 +37,14 @@ router.post('/',async(req,res)=> {
         res.sendStatus(400);
     })
 });
+
+router.get('/:id',async (req,res)=> {
+    const postId = req.params.id;
+    
+    let results = await getPosts({ _id: postId });
+    results = results[0];
+    res.status(200).send(results);
+ });
 
 router.put("/:id/like", async(req,res)=> {
     
@@ -102,5 +104,18 @@ router.post("/:id/retweet", async(req,res)=> {
 
     res.status(200).send(post);
 })
+
+async function getPosts(filter) {
+    let results = await Post.find(filter)
+    .populate("postedBy")
+    .populate("retweetData")
+    .populate("replyTo")
+    .sort({ "createdAt": -1 })
+    .catch(err => console.log(err))
+
+    results = await User.populate(results, { path: "replyTo.postedBy" });
+    return await User.populate(results, { path: "retweetData.postedBy" });
+    
+}
 
 module.exports = router;

@@ -1,7 +1,10 @@
-$('#postTextarea').keyup(e => {
+$('#postTextarea, #replyTextarea').keyup(e => {
     const textbox = $(e.target);
     const value = textbox.val().trim()
-    const submitButton = $('#submitPostButton');
+    
+    const isModal = textbox.parents(".modal").length === 1;
+
+    const submitButton = isModal ? $('#submitReplyButton') : $('#submitPostButton');
 
     if(submitButton.length === 0) return alert('No submit button found');
 
@@ -13,21 +16,44 @@ $('#postTextarea').keyup(e => {
     submitButton.prop("disabled",false);
 })
 
-$('#submitPostButton').click((e)=> {
+$('#submitPostButton, #submitReplyButton').click((e)=> {
     const button = $(e.target);
-    const textbox = $('#postTextarea');
+    const isModal = button.parents(".modal").length === 1;
+    const textbox = isModal ? $('#replyTextarea') : $('#postTextarea');
 
     const data = {
         content: textbox.val()
     }
 
+    if (isModal) {
+        const id = button.data().id;
+        if(id === null) return alert("Id is null");
+        data.replyTo = id;
+    }
+
     $.post("/api/posts", data, postData => {
-        const html = createPostHtml(postData);
-        $(".postsContainer").prepend(html);
-        textbox.val("");
-        button.prop("disabled",true);
+        if(postData.replyTo) {
+            location.reload();
+        }else{
+            const html = createPostHtml(postData);
+            $(".postsContainer").prepend(html);
+            textbox.val("");
+            button.prop("disabled",true);
+        }
     })
 });
+
+$("#replyModal").on("show.bs.modal", (e) => {
+    const button = $(e.relatedTarget);
+    const postId = getPostIdFromElement(button);
+    $('#submitReplyButton').data("id", postId);
+
+    $.get(`/api/posts/${postId}`, results => {
+        outputPosts(results,$("#originalPostContainer"))
+    })
+})
+
+$("#replyModal").on("hidden.bs.modal", () => $("#originalPostContainer").html(""))
 
 $(document).on("click",".likeButton",(e)=> {
     const button = $(e.target);
@@ -108,6 +134,21 @@ function createPostHtml(postData) {
             </span>`
     }
 
+    let replyFlag = "";
+    if(postData.replyTo) {
+        
+        if(!postData.replyTo._id) {
+            return alert("Reply is not populated")
+        }else if(!postData.replyTo.postedBy._id) {
+            return alert("Posted by is not populated")
+        }
+        
+        const replyToUsername = postData.replyTo.postedBy.username;
+        replyFlag = `<div class='replyFlag'>
+                        Replying To <a href='/profile/${replyToUsername}'>@${replyToUsername}</a>
+                    </div>`
+    }
+
     return `<div class='post' data-id='${postData._id}'>
                 <div class='postActionContainer'>
                     ${retweetText}
@@ -122,12 +163,13 @@ function createPostHtml(postData) {
                             <span class='username'>@${postedBy.username}</span>
                             <span class='date'>${timeStamp}</span>
                         </div>
+                        ${replyFlag}
                         <div class='postBody'>
                             <span>${postData.content}</span>
                         </div>
                         <div class='postFooter'>
                             <div class='postButtonContainer'>
-                               <button>
+                               <button data-toggle="modal" data-target="#replyModal">
                                     <i class='far fa-comment'></i>
                                </button> 
                             </div>
@@ -186,4 +228,19 @@ function timeDifference(current, previous) {
     }
 }
 
+function outputPosts(results,container) {
+    container.html("");
 
+    if(!Array.isArray(results)) {
+        results = [results];
+    }
+
+    results.forEach(result => {
+        const html = createPostHtml(result);
+        container.append(html);
+    });
+
+    if(results.length === 0) {
+        container.append("<span class='noResults'>No results to show</span>");
+    }
+}

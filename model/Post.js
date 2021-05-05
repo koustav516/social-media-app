@@ -21,6 +21,10 @@ const postSchema = new mongoose.Schema({
     retweetData: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Post'
+    },
+    replyTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Post'
     }
 }, { timestamps: true });
 
